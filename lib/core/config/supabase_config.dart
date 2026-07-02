@@ -22,12 +22,11 @@ class SupabaseConfig {
     defaultValue: 'https://bwkqzmdodbewhbrvkzpv.supabase.co',
   );
 
-  // ⚠️ À REMPLACER par la clé anon (publishable) du projet
-  // bwkqzmdodbewhbrvkzpv : Supabase → Project Settings → API → Project API keys.
+  // Clé anon (publishable) du projet bwkqzmdodbewhbrvkzpv.
   // Doit être IDENTIQUE à web_admin/.env.local.
   static const String anonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
-    defaultValue: 'REMPLACER_PAR_LA_CLE_ANON_DE_bwkqzmdodbewhbrvkzpv',
+    defaultValue: 'sb_publishable_RjSOroIOkYmP_SF6q_7-1g_pQI0MBW_',
   );
 
   /// Nom du bucket Storage pour les photos de feedback (compressées).
