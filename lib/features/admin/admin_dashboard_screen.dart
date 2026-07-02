@@ -228,8 +228,10 @@ class _FeedbackTile extends ConsumerWidget {
       BuildContext context, WidgetRef ref, String action) async {
     final id = row['id']?.toString();
     if (id == null) return;
+    // Valeurs conformes à la contrainte CHECK de moderation_status
+    // ('new','validated','hidden','resolved') et à l'enum feedback_status.
     final fields = switch (action) {
-      'validate' => {'moderation_status': 'approved'},
+      'validate' => {'moderation_status': 'validated'},
       'hide' => {'moderation_status': 'hidden'},
       'resolve' => {'moderation_status': 'resolved', 'status': 'resolved'},
       _ => <String, dynamic>{},
