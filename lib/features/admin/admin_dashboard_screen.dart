@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/sectors.dart';
+import '../../core/error/error_handler.dart';
 import '../../core/localization/app_strings.dart';
+import '../../data/datasources/remote/supabase_service.dart';
 import 'providers/admin_provider.dart';
+import 'services/admin_export_service.dart';
 import 'widgets/stat_card.dart';
 
 /// Tableau de bord administrateur (recommandé en Flutter Web).
@@ -21,10 +24,14 @@ class AdminDashboardScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(t.t('admin_dashboard')),
         actions: [
-          TextButton.icon(
-            onPressed: () => _exportCsv(context, ref),
+          PopupMenuButton<String>(
             icon: const Icon(Icons.download),
-            label: Text(t.t('export_csv')),
+            tooltip: t.t('export_csv'),
+            onSelected: (fmt) => _export(context, ref, fmt),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'csv', child: Text('Export CSV')),
+              PopupMenuItem(value: 'xlsx', child: Text('Export Excel (.xlsx)')),
+            ],
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -40,12 +47,24 @@ class AdminDashboardScreen extends ConsumerWidget {
     );
   }
 
-  void _exportCsv(BuildContext context, WidgetRef ref) {
-    // L'export complet (csv/excel) se branche sur AdminExportService.
-    // Voir docs/ADMIN.md pour la génération de fichier + partage.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Export CSV : voir AdminExportService')),
+  Future<void> _export(BuildContext context, WidgetRef ref, String fmt) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      SnackBar(content: Text('Export ${fmt.toUpperCase()} en cours…')),
     );
+    try {
+      final service = ref.read(adminExportServiceProvider);
+      final file = fmt == 'xlsx'
+          ? await service.exportExcel()
+          : await service.exportCsv();
+      messenger.showSnackBar(
+        SnackBar(content: Text('Export enregistré : ${file.path}')),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Export impossible : ${ErrorHandler.humanize(e)}')),
+      );
+    }
   }
 }
 
@@ -195,12 +214,36 @@ class _SectorBarChart extends StatelessWidget {
   }
 }
 
-class _FeedbackTile extends StatelessWidget {
+class _FeedbackTile extends ConsumerWidget {
   const _FeedbackTile({required this.row});
   final Map<String, dynamic> row;
 
+  Future<void> _moderate(
+      BuildContext context, WidgetRef ref, String action) async {
+    final id = row['id']?.toString();
+    if (id == null) return;
+    final fields = switch (action) {
+      'validate' => {'moderation_status': 'approved'},
+      'hide' => {'moderation_status': 'hidden'},
+      'resolve' => {'moderation_status': 'resolved', 'status': 'resolved'},
+      _ => <String, dynamic>{},
+    };
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(supabaseServiceProvider).updateFeedbackFields(id, fields);
+      ref.invalidate(dashboardStatsProvider);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Feedback mis à jour.')),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Action impossible : ${ErrorHandler.humanize(e)}')),
+      );
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final rating = (row['rating_normalized'] as num?)?.toDouble() ?? 0;
     final sector = Sectors.byId(row['sector_id'] as String? ?? '');
     final comment = row['comment'] as String? ?? '';
@@ -223,9 +266,7 @@ class _FeedbackTile extends StatelessWidget {
             PopupMenuItem(value: 'hide', child: Text('Masquer')),
             PopupMenuItem(value: 'resolve', child: Text('Marquer traité')),
           ],
-          onSelected: (action) {
-            // TODO: brancher AdminModerationService.update(row['id'], action)
-          },
+          onSelected: (action) => _moderate(context, ref, action),
         ),
       ),
     );

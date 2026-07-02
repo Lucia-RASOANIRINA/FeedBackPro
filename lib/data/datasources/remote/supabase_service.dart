@@ -198,6 +198,12 @@ class SupabaseService {
     }
   }
 
+  /// Met à jour un feedback côté admin (modération : statut, priorité,
+  /// visibilité, statut de suivi). RLS : réservé aux admins.
+  Future<void> updateFeedbackFields(String id, Map<String, dynamic> fields) async {
+    await _client.from('feedbacks').update(fields).eq('id', id);
+  }
+
   /// Récupère les feedbacks par secteur.
   Future<List<Map<String, dynamic>>> fetchFeedbacksBySector(String sectorId) async {
     try {
